@@ -16,7 +16,6 @@ skills/                  # Each subdirectory is an independent skill
 .codex-plugin/           # Codex CLI plugin manifest
 .cursor-plugin/          # Cursor plugin manifest
 .opencode/plugins/       # OpenCode plugin loader
-hooks/                   # Cross-platform session bootstrap hooks
 ```
 
 ## When editing skills

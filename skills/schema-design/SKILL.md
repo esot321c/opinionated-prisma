@@ -13,12 +13,13 @@ description: >
 
 - Always `@@map` models to snake_case table names, `@map` fields to snake_case columns.
 - Always add `@@index` on foreign key fields. Prisma does not create these automatically.
-- Use `@default(dbgenerated("uuidv7()"))` with `@db.Uuid` for all primary keys (native on PostgreSQL 18+; on 17 and below use `uuid_generate_v7()` from the `pg_uuidv7` extension). Do not use `@default(uuid())` which generates v4 (random, poor index locality). Do not use CUID or ULID as primary keys (string storage, 26-37 bytes vs 16 bytes for native uuid, no Postgres uuid operations).
+- Use `@default(dbgenerated("uuidv7()"))` with `@db.Uuid` on PostgreSQL 18+ (`@default(uuid(7))` on older versions). Do not use `@default(uuid())`, which generates v4 (random, poor index locality). Do not use CUID or ULID as primary keys (string storage, 26-37 bytes vs 16 bytes for native uuid, no Postgres uuid operations).
 - For user-facing URLs, add a separate `slug String @unique` field. The primary key is an internal concern; display identifiers are a separate field.
 - Auto-increment integer IDs are acceptable only for high-write append-only tables (logs, events) where the 8-byte saving matters at scale.
 - Prefer `String` with application-level validation over Prisma/Postgres enums for most status and category fields. Database enums require a migration to add values; string fields don't.
 - Use a proper relation instead of `Json` type unless the structure is genuinely dynamic and unqueried (e.g. raw webhook payloads, third-party metadata blobs).
 - Every table gets `createdAt` and `updatedAt` with `@map` to snake_case.
+- Map every `DateTime` to `@db.Timestamptz(3)`. Prisma's PostgreSQL default is `timestamp(3)` without a time zone.
 - Soft delete uses `deletedAt DateTime?` not a boolean flag.
 
 ## When to Use Database Enums
@@ -41,9 +42,9 @@ model Client {
   slug      String    @unique // "parr-business-law"
   name      String
   matters   Matter[]
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@map("clients")
 }
@@ -54,9 +55,9 @@ model Matter {
   client    Client    @relation(fields: [clientId], references: [id])
   title     String
   status    String    @default("open")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([clientId])
   @@map("matters")
@@ -85,4 +86,4 @@ enum MatterStatus {
 }
 ```
 
-Problems: no `@@map` so Prisma uses model name as table name with inconsistent casing. No `@@index` on FK so every join scans the table. `uuid()` gives v4 (random, poor index locality). `Json` field for data that should be relational. Missing `updatedAt`. Database enum for a status that will evolve.
+Problems: no `@@map` so Prisma uses model name as table name with inconsistent casing. No `@@index` on FK, so lookups by `clientId` and cascading deletes scan the table (PostgreSQL does not index referencing columns). `uuid()` gives v4 (random, poor index locality). `Json` field for data that should be relational. Missing `updatedAt`. Database enum for a status that will evolve.

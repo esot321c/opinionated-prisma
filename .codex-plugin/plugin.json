@@ -1,6 +1,6 @@
 {
   "name": "opinionated-prisma",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Opinionated Prisma ORM + PostgreSQL patterns: schema design, indexing, migrations, transactions, and raw SQL escape hatches",
   "author": {
     "name": "Morley Media Group",

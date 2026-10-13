@@ -13,13 +13,14 @@ description: >
 
 - Always add `@@index` on foreign key fields. Prisma does not create these automatically.
 - Run `EXPLAIN ANALYZE` on any query that touches more than ~1000 rows or joins 3+ tables before assuming Prisma's generated SQL is fine.
-- Enable query logging in development (`prisma.$on('query')`) to see what Prisma actually generates.
+- Enable query logging in development: `new PrismaClient({ adapter, log: [{ emit: "event", level: "query" }] })` then `prisma.$on("query", e => …)`. Read the SQL Prisma actually generates.
 
 ## What Prisma Handles Well
 
 - B-tree indexes via `@@index` and `@@unique`.
 - Composite indexes via `@@index([fieldA, fieldB])`.
-- GIN indexes on `Json` fields via `@@index([field], type: Gin)` (Prisma 5.x+).
+- Access methods via `@@index([field], type: Gin | Gist | SpGist | Brin | Hash)`, with operator classes via `ops:`.
+- Partial indexes via `where:` (Prisma 7.4+, behind the `partialIndexes` preview feature). Without the flag, write them in a custom migration and use Prisma 7.5 or later, so `migrate dev` does not drop them as drift.
 
 ## What Prisma Cannot Express (Use Custom Migrations)
 
@@ -44,27 +45,24 @@ CREATE INDEX idx_clients_email_lower ON clients(LOWER(email));
 
 Prisma has no way to express `LOWER()` in an `@@index`. Without this, case-insensitive email lookups do a sequential scan or rely on `ILIKE` which cannot use a standard B-tree index.
 
-### GiST Indexes
+### GiST and BRIN
 
-For range types, geometric data, or PostGIS. Not supported in Prisma schema at all.
+Both are schema-level when they index plain columns:
+
+```prisma
+@@index([ipAddress(ops: InetOps)], type: Gist)   // ipAddress String @db.Inet
+@@index([createdAt], type: Brin)   // large append-only tables
+```
+
+Expression-based GiST indexes still need a custom migration:
 
 ```sql
 CREATE INDEX idx_matters_date_range ON matters USING gist(tsrange(start_date, end_date));
 ```
 
-### BRIN Indexes
-
-For large append-only tables (audit logs, events) where data is naturally ordered by insertion time.
-
-```sql
-CREATE INDEX idx_audit_log_created ON audit_log USING brin(created_at);
-```
-
-Far smaller than a B-tree on a million-row log table. Prisma has no `type: Brin` option.
-
 ## N+1 and Join Behavior
 
-Prisma's `include` generates separate queries per relation by default.
+Without the `relationJoins` preview feature (still Preview in 7.x), `include` sends one query per relation level. With it, `relationLoadStrategy` defaults to `join` (LATERAL joins with JSON aggregation on PostgreSQL).
 
 ```typescript
 // This generates 1 query for clients + 1 query for matters + 1 query for documents
@@ -97,9 +95,9 @@ model Matter {
   clientId  String    @map("client_id") @db.Uuid
   client    Client    @relation(fields: [clientId], references: [id])
   status    String    @default("open")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([clientId])           // explicit FK index
   @@index([status, createdAt])  // composite for filtered + sorted queries

@@ -21,7 +21,7 @@ Use Prisma's query API by default. Reach for `$queryRaw` only when Prisma's gene
 | Window functions (`ROW_NUMBER`, `RANK`, `LAG/LEAD`) | Not expressible in Prisma query API |
 | CTEs (recursive or not) | Not supported. Needed for hierarchical data like org charts, matter trees, threaded comments |
 | Full-text search with ranking | Prisma's `search` filter has no `ts_rank`, no custom dictionaries, no control over tsvector columns |
-| JSONB containment queries (`@>`, `?`, `?&`) | Prisma filters JSONB but cannot use GIN-aware operators |
+| JSONB containment and key-existence operators (`@>`, `?`, `?&`) with GIN indexes | Check the generated SQL with query logging before assuming Prisma's Json filters use the index |
 | Bulk upsert (`INSERT ... ON CONFLICT`) | Prisma's `upsert` is one query per row |
 | Conditional bulk update (`UPDATE ... CASE`) | Prisma's `updateMany` applies uniform data |
 | Aggregation beyond `groupBy` | No HAVING with complex expressions, no rollups, no cube |
@@ -39,7 +39,11 @@ If you find yourself writing raw SQL for basic CRUD, the problem is probably a m
 
 ## Keeping Raw SQL Maintainable
 
+Import `Prisma` (for `Prisma.sql`, `Prisma.join`) from the generated client path.
+
 ### Always Type the Return
+
+The type argument is an unchecked assertion. Bigint columns come back as `BigInt` and numeric as `Decimal`. Validate or map rows at the boundary, or use TypedSQL (`prisma/sql/*.sql`).
 
 ```typescript
 // WRONG: Untyped
@@ -49,7 +53,7 @@ const results = await prisma.$queryRaw`SELECT * FROM matters`;
 interface MatterWithRank {
   id: string;
   title: string;
-  rank: number;
+  rank: bigint; // ROW_NUMBER() returns bigint, which arrives as BigInt
 }
 
 const results = await prisma.$queryRaw<MatterWithRank[]>`
@@ -77,9 +81,9 @@ Don't scatter raw SQL across services. Keep it next to the Prisma operations it 
 
 ```typescript
 // WRONG: String interpolation (SQL injection risk)
-const results = await prisma.$queryRaw`
-  SELECT * FROM matters WHERE client_id = '${clientId}'
-`;
+const results = await prisma.$queryRawUnsafe(
+  `SELECT * FROM matters WHERE client_id = '${clientId}'`
+);
 
 // CORRECT: Parameterized
 const results = await prisma.$queryRaw<Matter[]>`
@@ -87,7 +91,7 @@ const results = await prisma.$queryRaw<Matter[]>`
 `;
 ```
 
-Prisma's tagged template literal handles parameterization automatically. Do not use string concatenation or template literals outside the `$queryRaw` tag.
+Prisma's tagged template literal handles parameterization automatically. Inside the `$queryRaw` tag, `${}` is always a bound parameter; do not quote it. Do not use string concatenation or template literals outside the `$queryRaw` tag.
 
 ## Correct: CTE for Matter Hierarchy
 

@@ -24,56 +24,31 @@ provides separate skills for each concern — use the one that matches your curr
 
 Invoke the specific skill via the Skill tool when the task narrows to one of these areas.
 
-## Prerequisites
+## Scope
 
-### UUID v7 Support
+Written for Prisma ORM 7.x on PostgreSQL. Prisma 8 replaces the query and migration APIs; do not apply this guidance to a Prisma 8 project. Where the repository's CLAUDE.md, schema comments or existing migrations set a convention, the repository wins.
 
-This plugin assumes UUID v7 as the default primary key strategy.
+## Prisma 7 baseline
 
-**PostgreSQL 18+** supports UUID v7 natively via the built-in `uuidv7()` function.
-No extension, no init script. Prefer Postgres 18 for greenfield projects:
+- Generator: `provider = "prisma-client"` with a required `output` (e.g. `"../generated/prisma"`). Import `PrismaClient` and the `Prisma` namespace from the generated path (e.g. `../generated/prisma/client`), not `@prisma/client`.
+- Connection URLs live in `prisma.config.ts` (`datasource.url`), not in the `datasource` block. The CLI does not load `.env`; load it in `prisma.config.ts`.
+- `PrismaClient` requires a driver adapter: `new PrismaClient({ adapter: new PrismaPg({ connectionString }) })` from `@prisma/adapter-pg`.
+- `prisma migrate dev` no longer runs `prisma generate` or the seed; run them explicitly.
+- `$use` middleware is removed; use `$extends` with `query` hooks.
+
+## Primary keys: UUIDv7
+
+PostgreSQL 18 and later has `uuidv7()` built in:
 
 ```prisma
 id String @id @default(dbgenerated("uuidv7()")) @db.Uuid
 ```
 
-**PostgreSQL 17 and below** require the `pg_uuidv7` extension, which provides the
-same capability under the name `uuid_generate_v7()`. Add to your Postgres
-initialization:
-
-```sql
--- init.sql
-CREATE EXTENSION IF NOT EXISTS "pg_uuidv7";
-```
-
-For Docker Compose, mount an init script:
-
-```yaml
-volumes:
-  - postgres_data:/var/lib/postgresql/data
-  - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-```
-
-Then in Prisma schemas, use:
-
-```prisma
-id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-```
-
-If you are on managed Postgres below 18 that does not allow `pg_uuidv7`, fall back
-to `gen_random_uuid()` (v4) and accept the index locality tradeoff. Do not use CUID
-or ULID as a workaround.
-
-Examples throughout these skills use the native `uuidv7()`; substitute
-`uuid_generate_v7()` on Postgres 17 and below.
+PostgreSQL 17 and earlier: `id String @id @default(uuid(7)) @db.Uuid`. Prisma Client generates the value, so raw SQL inserts must supply their own id. If the project already uses `pg_uuidv7` (`uuid_generate_v7()`), keep it.
 
 ## Initial Setup Behavior
 
-When first working with a project's database:
-
-1. Check for an existing `prisma.schema` (or `schema.prisma`) and `docker-compose.yml`
-2. Determine the Postgres major version (`SELECT version();`, or the image tag in `docker-compose.yml`)
-3. On Postgres 18+, use native `uuidv7()`. An existing project already on `pg_uuidv7` keeps working — don't churn it — but new schemas use the built-in
-4. On Postgres 17 or below, self-hosted (Docker, bare metal): add the `pg_uuidv7` extension if missing, note the change, and use `uuid_generate_v7()`
-5. On managed Postgres 17 or below with restricted extensions, fall back to v4 and document the tradeoff in a schema comment
-6. Once the ID strategy is established for a project, use it consistently. Do not mix strategies.
+1. Read `schema.prisma`, `prisma.config.ts`, the Prisma version in `package.json`, the PostgreSQL version (compose image tag or `SELECT version()`), and the existing migrations.
+2. Follow the ID strategy already in the schema. Do not mix strategies.
+3. New schema: `uuidv7()` on PostgreSQL 18+, `uuid(7)` otherwise.
+4. Never change database infrastructure (images, extensions, init scripts) without asking.
