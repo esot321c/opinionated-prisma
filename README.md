@@ -24,7 +24,7 @@ You don't invoke skills manually. Ask your agent to "add a users table" and the 
 
 - **indexing** — Activates when adding indexes or diagnosing slow queries. Covers what Prisma handles (B-tree, composite, GIN, GiST, BRIN, Hash) and what requires custom migrations (partial indexes without the preview flag, expression indexes). Addresses N+1 join behavior and when to enable `relationJoins`.
 
-- **migration-safety** — Activates when planning or running `prisma migrate`. Enforces the `--create-only` review workflow, three-step required column additions (nullable, backfill, NOT NULL), `CREATE INDEX CONCURRENTLY` on production tables serving live traffic, and `NOT VALID`/`VALIDATE` for constraints.
+- **migration-safety** — Activates when planning or running `prisma migrate`. Enforces the `--create-only` review workflow, three-step required column additions (nullable, backfill, NOT NULL), `CREATE INDEX CONCURRENTLY` on tables that may already be deployed, and `NOT VALID`/`VALIDATE` for constraints.
 
 - **transactions** — Activates when writing transactions or bulk operations. Chooses interactive vs sequential transactions, enforces explicit timeouts, handles bulk create with relations via transaction loops, and bulk upsert via `INSERT ... ON CONFLICT`.
 
