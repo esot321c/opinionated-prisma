@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - **opinionated-prisma**: Scope section (Prisma ORM 7.x on PostgreSQL; the repository's own conventions win) and a Prisma 7 baseline: `prisma-client` generator with required `output`, connection URLs in `prisma.config.ts`, required driver adapter, `migrate dev` no longer running `generate` or the seed, `$use` replaced by `$extends`
 - **schema-design**: map every `DateTime` to `@db.Timestamptz(3)`
+- **opinionated-prisma**, **schema-design**: UUIDv5 exception for ids that must be derived from their input (stateless code that cannot check for duplicates); with a database, a v7 id plus a unique constraint on the key
 - **transactions**: project-wide `transactionOptions` on `PrismaClient`
 
 ### Changed

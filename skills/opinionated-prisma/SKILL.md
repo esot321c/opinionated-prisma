@@ -46,6 +46,23 @@ id String @id @default(dbgenerated("uuidv7()")) @db.Uuid
 
 PostgreSQL 17 and earlier: `id String @id @default(uuid(7)) @db.Uuid`. Prisma Client generates the value, so raw SQL inserts must supply their own id. If the project already uses `pg_uuidv7` (`uuid_generate_v7()`), keep it.
 
+### Exception: ids derived from their input (UUIDv5)
+
+Use a UUIDv5 (SHA-1 of a namespace UUID plus a name) when an id must be derived from its input, so that a retry or replay names the same row by construction. This applies when the code creating the record cannot check for a duplicate, typically a stateless service with no database to hold a unique constraint. Example: a gateway that accepts orders without writing to the database derives the order id from the account id and the client's idempotency key; the worker that later writes the order rejects a repeated id.
+
+```typescript
+import { v5 as uuidv5 } from "uuid";
+
+const ORDER_ID_NAMESPACE = "6f1c2a4e-…"; // a fixed UUID chosen once for this kind of id
+const orderId = uuidv5(`${accountId}:${idempotencyKey}`, ORDER_ID_NAMESPACE);
+```
+
+- Put the tenant or scope id in the hashed name, so two tenants using the same key cannot collide.
+- Generate the id in application code (`v5` from the `uuid` npm package, `uuid.NewSHA1` in Go). Prisma's `uuid()` supports versions 4 and 7 only, and PostgreSQL has no built-in v5 (`uuid_generate_v5()` is in the `uuid-ossp` extension). The column has no default: `id String @id @db.Uuid`.
+- v5 ids are not time-ordered, so these inserts lose v7's index locality. Accept that for the rows that need it.
+
+When a database is available, use a v7 id plus a unique constraint on the idempotency or natural key (`@@unique([accountId, idempotencyKey])`), not a v5 id.
+
 ## Initial Setup Behavior
 
 1. Read `schema.prisma`, `prisma.config.ts`, the Prisma version in `package.json`, the PostgreSQL version (compose image tag or `SELECT version()`), and the existing migrations.
