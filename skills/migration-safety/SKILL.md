@@ -97,7 +97,7 @@ ALTER TABLE matters VALIDATE CONSTRAINT chk_total_positive;
 | Operation | Risk | Safe Alternative |
 |---|---|---|
 | Add `NOT NULL` column without default | Fails on any non-empty table | Add nullable, backfill, then set `NOT NULL` |
-| `CREATE INDEX` on large table | Blocks writes (not reads) for the whole build | `CREATE INDEX CONCURRENTLY` via `--create-only` |
+| `CREATE INDEX` on a production table serving live traffic | Blocks writes (not reads) for the whole build | `CREATE INDEX CONCURRENTLY` via `--create-only` |
 | Drop column | Breaks running code during deploy | Stop reading column in code first, deploy, then drop in next migration |
 | Rename column | Breaks running code | Add new column, copy data, update code, drop old column across multiple deploys |
 | Add constraint | Full table scan with lock | `NOT VALID` then `VALIDATE` separately |
