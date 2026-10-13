@@ -18,13 +18,13 @@ You don't invoke skills manually. Ask your agent to "add a users table" and the 
 
 ### Skills
 
-- **opinionated-prisma** — Entry point. Establishes UUID v7 prerequisites, checks for existing schema and Docker setup, routes to the appropriate skill for the task at hand.
+- **opinionated-prisma** — Entry point. Sets the Prisma 7 baseline and the UUID v7 strategy, reads the existing schema, config and migrations, and routes to the appropriate skill for the task at hand.
 
 - **schema-design** — Activates when designing models or adding fields. Enforces snake_case mapping via `@@map`/`@map`, UUID v7 primary keys, `@@index` on every foreign key, string fields over database enums, separate slug fields for URLs, and soft delete via `deletedAt`.
 
-- **indexing** — Activates when adding indexes or diagnosing slow queries. Covers what Prisma handles (B-tree, composite, GIN) and what requires custom migrations (partial indexes, expression indexes, GiST, BRIN). Addresses N+1 join behavior and when to enable `relationJoins`.
+- **indexing** — Activates when adding indexes or diagnosing slow queries. Covers what Prisma handles (B-tree, composite, GIN, GiST, BRIN, Hash) and what requires custom migrations (partial indexes without the preview flag, expression indexes). Addresses N+1 join behavior and when to enable `relationJoins`.
 
-- **migration-safety** — Activates when planning or running `prisma migrate`. Enforces the `--create-only` review workflow, three-step required column additions (nullable, backfill, NOT NULL), `CREATE INDEX CONCURRENTLY` for large tables, and `NOT VALID`/`VALIDATE` for constraints.
+- **migration-safety** — Activates when planning or running `prisma migrate`. Enforces the `--create-only` review workflow, three-step required column additions (nullable, backfill, NOT NULL), `CREATE INDEX CONCURRENTLY` on tables that may already be deployed, and `NOT VALID`/`VALIDATE` for constraints.
 
 - **transactions** — Activates when writing transactions or bulk operations. Chooses interactive vs sequential transactions, enforces explicit timeouts, handles bulk create with relations via transaction loops, and bulk upsert via `INSERT ... ON CONFLICT`.
 
@@ -108,13 +108,13 @@ git clone https://github.com/esot321c/opinionated-prisma.git .claude/skills/opin
 
 ## Prerequisites
 
-Self-hosted PostgreSQL with the `pg_uuidv7` extension. See the `opinionated-prisma` skill for setup instructions including Docker Compose configuration.
+Prisma ORM 7.x. PostgreSQL 18 (built-in `uuidv7()`), or `@default(uuid(7))` on older versions. See the `opinionated-prisma` skill for the Prisma 7 baseline.
 
 ## Opinions
 
 This plugin makes these decisions rather than presenting options:
 
-- UUID v7 via `pg_uuidv7`, not v4/CUID/ULID
+- UUID v7 via `uuidv7()` (PG18) or `uuid(7)`, not v4/CUID/ULID
 - String fields for status/category, database enums only for type discriminators
 - Slugs for user-facing URLs, UUIDs for internal keys
 - `@@map` and `@map` to snake_case on every model and field
