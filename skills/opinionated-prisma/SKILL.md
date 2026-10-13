@@ -44,7 +44,7 @@ PostgreSQL 18 and later has `uuidv7()` built in:
 id String @id @default(dbgenerated("uuidv7()")) @db.Uuid
 ```
 
-PostgreSQL 17 and earlier: `id String @id @default(uuid(7)) @db.Uuid`. Prisma Client generates the value, so raw SQL inserts must supply their own id. If the project already uses `pg_uuidv7` (`uuid_generate_v7()`), keep it.
+PostgreSQL 17 and earlier: `id String @id @default(uuid(7)) @db.Uuid`. Prisma Client generates the value, so raw SQL inserts must supply their own id. If rows are also inserted outside Prisma and need a database default, use `@default(dbgenerated("gen_random_uuid()"))` (v4) instead. If the project already uses `pg_uuidv7` (`uuid_generate_v7()`), keep it.
 
 ### Exception: ids derived from their input (UUIDv5)
 

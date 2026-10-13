@@ -13,7 +13,7 @@ description: >
 
 - Always `@@map` models to snake_case table names, `@map` fields to snake_case columns.
 - Always add `@@index` on foreign key fields. Prisma does not create these automatically.
-- Use `@default(dbgenerated("uuidv7()"))` with `@db.Uuid` on PostgreSQL 18+ (`@default(uuid(7))` on older versions). Do not use `@default(uuid())`, which generates v4 (random, poor index locality). Do not use CUID or ULID as primary keys (string storage, 26-37 bytes vs 16 bytes for native uuid, no Postgres uuid operations).
+- Use `@default(dbgenerated("uuidv7()"))` with `@db.Uuid` on PostgreSQL 18+ (`@default(uuid(7))` on older versions, or `dbgenerated("gen_random_uuid()")` (v4) when rows are also inserted outside Prisma and need a database default). Do not use `@default(uuid())`, which generates v4 (random, poor index locality). Do not use CUID or ULID as primary keys (string storage, 26-37 bytes vs 16 bytes for native uuid, no Postgres uuid operations).
 - Exception: when an id must be derived from its input so a retry names the same row, and the code creating it has no database to enforce a unique constraint, use a UUIDv5 generated in application code from the tenant or scope id plus the key, with no column default (see the `opinionated-prisma` skill). With a database, use a v7 id plus `@@unique` on the key instead.
 - For user-facing URLs, add a separate `slug String @unique` field. The primary key is an internal concern; display identifiers are a separate field.
 - Auto-increment integer IDs are acceptable only for high-write append-only tables (logs, events) where the 8-byte saving matters at scale.
